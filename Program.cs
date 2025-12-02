@@ -54,18 +54,21 @@ app.MapPost("/tasks", async (ToDoDbContext context, Item newItem) =>
     return Results.Created($"/tasks/{newItem.Id}", newItem);
 });
 
-app.MapPut("/tasks/{id}", async (ToDoDbContext context, int id, Item updatedItem) =>
+app.MapPut("/tasks/{id}", async (ToDoDbContext context, int id, Item itemDataFromClient) =>
 {
-    var item = await context.Items.FindAsync(id);
-    if (item == null) return Results.NotFound();
+    // 1. מאתר את הפריט המקורי במסד הנתונים
+ var existingItem = await context.Items.FindAsync(id);
 
-    item.Name = updatedItem.Name;
-    item.IsComplete = updatedItem.IsComplete;
+ if (existingItem == null) return Results.NotFound();
 
-    await context.SaveChangesAsync();
-    return Results.Ok(item);
+    // 2. *התיקון*: אנחנו מעדכנים רק את השדה שצריך לשנות (IsComplete)
+    // ואת ה-Name משאירים עם הערך הקיים!
+ existingItem.IsComplete = itemDataFromClient.IsComplete;
+    // existingItem.Name נשאר ללא שינוי (הוא לא נדרס על ידי null)
+
+ await context.SaveChangesAsync();
+ return Results.Ok(existingItem);
 });
-
 app.MapDelete("/tasks/{id}", async (ToDoDbContext context, int id) =>
 {
     var item = await context.Items.FindAsync(id);
