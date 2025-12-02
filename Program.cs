@@ -1,25 +1,25 @@
-using Microsoft.EntityFrameworkCore;       
-using TodoApi;                    
-using System;  
+using Microsoft.EntityFrameworkCore;
+using TodoApi;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ הוספת Swagger
+// Add Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ✅ 1. מוסיפים שירות CORS ל־container
+// CORS Policy
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowClient", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.WithOrigins("https://todo-list-fullstack-client-1kqz.onrender.com")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
-// ✅ הגדרת DbContext
+// DB Context
 builder.Services.AddDbContext<ToDoDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("ToDoDB"),
@@ -29,18 +29,24 @@ builder.Services.AddDbContext<ToDoDbContext>(options =>
 
 var app = builder.Build();
 
-// ✅ 2. מוסיפים את השימוש ב־CORS במידלוואר
-app.UseCors("AllowAll");
+// חובה ב-.NET למיפוי תקין
+app.UseRouting();
 
+// הפעלת CORS *לפני* המיפוי
+app.UseCors("AllowClient");
+
+// Swagger תמיד מופעל
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// Endpoints
 app.MapGet("/", () => "Hello World!");
 
-// 1️⃣ שליפת כל המשימות
 app.MapGet("/tasks", async (ToDoDbContext context) =>
 {
     return await context.Items.ToListAsync();
 });
 
-// 2️⃣ הוספת משימה חדשה
 app.MapPost("/tasks", async (ToDoDbContext context, Item newItem) =>
 {
     context.Items.Add(newItem);
@@ -48,7 +54,6 @@ app.MapPost("/tasks", async (ToDoDbContext context, Item newItem) =>
     return Results.Created($"/tasks/{newItem.Id}", newItem);
 });
 
-// 3️⃣ עדכון משימה קיימת
 app.MapPut("/tasks/{id}", async (ToDoDbContext context, int id, Item updatedItem) =>
 {
     var item = await context.Items.FindAsync(id);
@@ -61,7 +66,6 @@ app.MapPut("/tasks/{id}", async (ToDoDbContext context, int id, Item updatedItem
     return Results.Ok(item);
 });
 
-// 4️⃣ מחיקת משימה
 app.MapDelete("/tasks/{id}", async (ToDoDbContext context, int id) =>
 {
     var item = await context.Items.FindAsync(id);
@@ -71,11 +75,5 @@ app.MapDelete("/tasks/{id}", async (ToDoDbContext context, int id) =>
     await context.SaveChangesAsync();
     return Results.NoContent();
 });
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
 
 app.Run();
